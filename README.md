@@ -1,44 +1,46 @@
-# Zero ETL Data Mesh – Project Overview
+# Containerized Zero-ETL Data Mesh Pipeline
 
-This project establishes a foundational streaming data pipeline, creating a Zero-ETL Data Mesh architecture. It leverages Kafka for high-throughput messaging, Apache Spark Structured Streaming for real-time data processing, and Apache Iceberg for robust, high-performance table format management on AWS S3. All components are orchestrated using Docker Compose for a streamlined local development environment.
-
-## Project Goals
-
-### 1. Foundational Setup & Streaming Ingestion
-- **What we did**: Established a Dockerized environment for Kafka and Spark. Configured a Kafka topic (`users`) and built a Spark Structured Streaming job (`kafka_to_iceberg.py`) to ingest data from this topic. Enabled checkpointing for fault tolerance and exactly-once processing guarantees.
-- **Why we did it**: To create a scalable and resilient core infrastructure for real-time data ingestion, capable of handling continuous data streams reliably.
-
-### 2. Apache Iceberg Integration & Basic Data Management
-- **What we did**: Integrated Apache Iceberg as the table format layer. Configured AWS S3 as the Iceberg warehouse, managing environment variables for secure access. Developed Spark jobs to initialize (`open_iceberg_shell.py`) and query (`query_users.py`) the Iceberg table. Demonstrated basic data management by performing DELETE operations on invalid rows.
-- **Why we did it**: To introduce a powerful table format that enables schema evolution, time travel, and robust data management features directly on object storage, moving beyond basic file storage.
-
-### 3. Data Product Refinement – Schema Evolution, Partitioning & Deduplication
-- **What we did**:
-  - **Schema Evolution**: Evolved the `users` table schema by adding new fields (`signup_ts`, `age`) to accommodate richer user data.
-  - **Partitioning**: Implemented partitioning by `days(signup_ts)` and `bucket(16, id)` to physically organize data on S3.
-  - **Deduplication**: Developed a robust streaming deduplication strategy to ensure uniqueness of records based on `id`, always reflecting the latest data.
-- **Why we did it**:
-  - **Schema Evolution**: To maintain agility as data requirements change, allowing schema updates without downtime or complex data migrations.
-  - **Partitioning**: To significantly boost query performance for analytical workloads by enabling data pruning at the storage layer.
-  - **Deduplication**: To ensure high data quality and consistency in a streaming environment, preventing duplicate records from polluting analytical datasets.
-
-### 4. Data Retention & Snapshot Expiration
-- **What we did**: Developed and executed a script (`expire_snapshots.py`) to remove old snapshots from the Iceberg table, successfully removing old snapshots and their associated data files, manifest lists, and manifest files.
-- **Why we did it**: To manage storage costs on S3 by periodically cleaning up old data files that are no longer referenced by a valid snapshot, improving query performance by reducing the size of the table's metadata.
+This repository implements a containerized real-time ingestion pipeline designed around a Zero-ETL Data Mesh architecture. By integrating Apache Kafka for message queuing, Apache Spark Structured Streaming for streaming computations, and Apache Iceberg for table layout management over AWS S3 storage, it establishes a high-performance local development sandbox orchestrated via Docker Compose.
 
 ---
 
-## Technologies Used
-- Docker Compose
-- Apache Spark 3.5.1
-- Apache Kafka
-- Apache Iceberg
-- Python 3
-- S3-compatible storage (AWS S3)
+## Architectural Objectives & Milestones
+
+### 1. Core Streaming & Ingest Setup
+- **Implementation (What we did)**: Provisioned a local Docker network hosting Apache Kafka and Apache Spark. Built a streaming Spark job (`kafka_to_iceberg.py`) that pulls events from the `users` topic, using transaction checkpointing to ensure end-to-end reliability and exactly-once processing.
+- **Rationale (Why we did it)**: To establish a resilient, failure-tolerant ingestion layer capable of processing steady event streams with structural durability.
+
+### 2. Lakehouse Table Layout via Apache Iceberg
+- **Implementation (What we did)**: Configured AWS S3 object storage to host an Iceberg warehouse catalog. Coded initialization (`open_iceberg_shell.py`) and data query (`query_users.py`) actions. Conducted targeted record cleanups using standard transactional delete patterns on invalid rows.
+- **Rationale (Why we did it)**: To transition from basic directory-based file storage to a structured, transactional table format that supports reliable schema validation, metadata management, and analytical query acceleration.
+
+### 3. Optimizations: Partitioning, Schema Changes, and Streaming Deduplication
+- **Implementation (What we did)**:
+  - **Schema Changes**: Expanded the user record structure by adding timestamp tracking (`signup_ts`) and integer age fields (`age`) without pipeline downtime.
+  - **Physical Clustering**: Partitioned records daily based on the signup timestamp (`days(signup_ts)`) and distributed them into 16 hash buckets by user ID (`bucket(16, id)`).
+  - **Stateful Deduplication**: Built a streaming partition-window filter that resolves overlapping and late-arriving updates by primary key, merging only the newest state into S3.
+- **Rationale (Why we did it)**:
+  - **Schema Changes**: To maintain structural adaptability for evolving business requirements without requiring database migrations.
+  - **Physical Clustering**: To accelerate query execution speeds by allowing analytical engines to skip irrelevant file folders during partition pruning.
+  - **Stateful Deduplication**: To enforce data cleanliness, preventing duplicate stream payloads from polluting analytical reporting layers.
+
+### 4. Storage Housekeeping & Expiration Utilities
+- **Implementation (What we did)**: Created an automated housekeeping script (`expire_snapshots.py`) that purges outdated table snapshots, freeing up storage by deleting unreferenced manifest lists and underlying S3 data files.
+- **Rationale (Why we did it)**: To manage AWS storage fees dynamically and enhance metadata access speeds by pruning old historical structures.
 
 ---
 
-## Project File Structure
+## Technologies Employed
+- **Container Orchestration**: Docker Compose
+- **Execution Engine**: Apache Spark 3.5.1
+- **Ingestion & Queuing**: Apache Kafka
+- **Table Management**: Apache Iceberg
+- **Language**: Python 3
+- **Storage Target**: AWS S3 (S3a connector)
+
+---
+
+## Directory Structure
 
 ```plaintext
 .
