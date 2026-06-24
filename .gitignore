@@ -1,0 +1,19 @@
+# Python gitignore
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Spark and Hadoop temp files
+.spark-checkpoint/
+checkpoint/
+spark-warehouse/
+metastore_db/
+derby.log
+
+# IDEs
+.idea/
+.vscode/
+.DS_Store
