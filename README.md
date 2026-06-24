@@ -1,17 +1,44 @@
-# Dockerized Zero-ETL Data Mesh AWS Pipeline
+# Zero ETL Data Mesh – Project Overview
 
-This repository establishes a foundational streaming data pipeline creating a Zero-ETL Data Mesh architecture. It leverages Kafka for high-throughput messaging, Apache Spark Structured Streaming for real-time data processing, and Apache Iceberg for robust table format management on AWS S3. All components are orchestrated using Docker Compose for a streamlined local development environment.
+This project establishes a foundational streaming data pipeline, creating a Zero-ETL Data Mesh architecture. It leverages Kafka for high-throughput messaging, Apache Spark Structured Streaming for real-time data processing, and Apache Iceberg for robust, high-performance table format management on AWS S3. All components are orchestrated using Docker Compose for a streamlined local development environment.
 
-## Architecture & Components
+## Project Goals
 
-- **Apache Kafka (KRaft mode)**: Ingests stream messages under the `users` topic.
-- **Apache Spark 3.5.1**: Streams records from Kafka, applies deduplication, and commits writes directly to the Apache Iceberg catalog on AWS S3.
-- **Apache Iceberg**: High-performance table format enabling Daily partitioning by `signup_ts`, bucket-hash partitioning by `id`, schema evolution, compaction, and snapshot expiration.
-- **zeroetl (PyPI)**: A utility python package mapping standard API operations for table initialization, batch ingestion, query, optimization, and snapshot expiration.
+### 1. Foundational Setup & Streaming Ingestion
+- **What we did**: Established a Dockerized environment for Kafka and Spark. Configured a Kafka topic (`users`) and built a Spark Structured Streaming job (`kafka_to_iceberg.py`) to ingest data from this topic. Enabled checkpointing for fault tolerance and exactly-once processing guarantees.
+- **Why we did it**: To create a scalable and resilient core infrastructure for real-time data ingestion, capable of handling continuous data streams reliably.
+
+### 2. Apache Iceberg Integration & Basic Data Management
+- **What we did**: Integrated Apache Iceberg as the table format layer. Configured AWS S3 as the Iceberg warehouse, managing environment variables for secure access. Developed Spark jobs to initialize (`open_iceberg_shell.py`) and query (`query_users.py`) the Iceberg table. Demonstrated basic data management by performing DELETE operations on invalid rows.
+- **Why we did it**: To introduce a powerful table format that enables schema evolution, time travel, and robust data management features directly on object storage, moving beyond basic file storage.
+
+### 3. Data Product Refinement – Schema Evolution, Partitioning & Deduplication
+- **What we did**:
+  - **Schema Evolution**: Evolved the `users` table schema by adding new fields (`signup_ts`, `age`) to accommodate richer user data.
+  - **Partitioning**: Implemented partitioning by `days(signup_ts)` and `bucket(16, id)` to physically organize data on S3.
+  - **Deduplication**: Developed a robust streaming deduplication strategy to ensure uniqueness of records based on `id`, always reflecting the latest data.
+- **Why we did it**:
+  - **Schema Evolution**: To maintain agility as data requirements change, allowing schema updates without downtime or complex data migrations.
+  - **Partitioning**: To significantly boost query performance for analytical workloads by enabling data pruning at the storage layer.
+  - **Deduplication**: To ensure high data quality and consistency in a streaming environment, preventing duplicate records from polluting analytical datasets.
+
+### 4. Data Retention & Snapshot Expiration
+- **What we did**: Developed and executed a script (`expire_snapshots.py`) to remove old snapshots from the Iceberg table, successfully removing old snapshots and their associated data files, manifest lists, and manifest files.
+- **Why we did it**: To manage storage costs on S3 by periodically cleaning up old data files that are no longer referenced by a valid snapshot, improving query performance by reducing the size of the table's metadata.
 
 ---
 
-## File Structure
+## Technologies Used
+- Docker Compose
+- Apache Spark 3.5.1
+- Apache Kafka
+- Apache Iceberg
+- Python 3
+- S3-compatible storage (AWS S3)
+
+---
+
+## Project File Structure
 
 ```plaintext
 .
@@ -102,12 +129,3 @@ Clean up historical checkpoints and orphaned S3 data files to minimize storage c
 ```bash
 docker exec -it spark-master python jobs/expire_snapshots.py
 ```
-
----
-
-## Technical Features Demonstrated
-
-1. **Exactly-Once Semantics**: Handled via Spark Structured Streaming checkpointing to the S3 warehouse bucket.
-2. **Streaming Deduplication**: Uses `foreachBatch` to perform intra-batch window ordering and inter-batch `MERGE INTO` SQL commands based on primary key `id` and ordering timestamp `signup_ts`.
-3. **Partition Pruning**: The table is physically organized by `days(signup_ts)` and bucket-hashed by `bucket(16, id)`.
-4. **Data Management**: Showcases ACID transactional capability via `DELETE` statements on table formats over S3 object stores.
